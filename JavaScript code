@@ -1,0 +1,34 @@
+export function generateQRCodes(totalBill, upiIds) {
+  if (!upiIds || upiIds.length === 0) throw new Error("Kam se kam 1 UPID chahiye");
+  const MAX = 1999; const MIN_QR_AMOUNT_SPLIT = 100;
+  if (totalBill <= MAX) {
+    return [{ upi: upiIds[0], amount: totalBill, upiLink: `upi://pay?pa=${upiIds[0]}&am=${totalBill}&cu=INR` }];
+  }
+  let k = Math.ceil(totalBill / MAX);
+  while (k * MAX - (k * (k - 1)) / 2 < totalBill) { k++; }
+  function generateRandomUniqueAmounts(total, count) {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      let used = new Set(); let amounts = []; let remaining = total; let success = true;
+      for (let i = 0; i < count - 1; i++) {
+        let partsLeft = count - i - 1;
+        let low = Math.max(MIN_QR_AMOUNT_SPLIT, remaining - partsLeft * MAX);
+        let high = Math.min(MAX, remaining - partsLeft * MIN_QR_AMOUNT_SPLIT);
+        if (low > high) { success = false; break; }
+        let val, tries = 0;
+        do { val = Math.floor(Math.random() * (high - low + 1)) + low; tries++; } while (used.has(val) && tries < 100);
+        if (used.has(val)) { success = false; break; }
+        used.add(val); amounts.push(val); remaining -= val;
+      }
+      if (success && remaining >= MIN_QR_AMOUNT_SPLIT && remaining <= MAX &&!used.has(remaining)) { amounts.push(remaining); return amounts; }
+    }
+    return null;
+  }
+  let amounts = generateRandomUniqueAmounts(totalBill, k);
+  if (!amounts) throw new Error("Split failed");
+  let qrList = [];
+  for (let i = 0; i < amounts.length; i++) {
+    let upi = upiIds[i % upiIds.length];
+    qrList.push({ upi: upi, amount: amounts[i], upiLink: `upi://pay?pa=${upi}&am=${amounts[i]}&cu=INR` });
+  }
+  return qrList;
+}
